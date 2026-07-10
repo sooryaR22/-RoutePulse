@@ -207,6 +207,8 @@ async function recordDemoArrival({
 
     const routeCompleted = nextStop === null;
 
+    const isFinalStop = routeCompleted;
+
     const etaData = getDemoEtaData(
       {
         latitude: stop.latitude,
@@ -258,6 +260,13 @@ async function recordDemoArrival({
 
       estimatedSpeedKmh:
         etaData.estimatedSpeedKmh,
+
+      ...(isFinalStop
+        ? {
+            status: "completed",
+            completedAt: serverTimestamp(),
+          }
+        : {}),
     });
   });
 }
@@ -362,11 +371,30 @@ export default function DemoRouteTracker({
             `Demo bus arrived at: ${nextStop.name}`
           );
 
-          await wait(route.demoSpeedMs);
-        }
+          /*
+            At the final stop, recordDemoArrival changes
+            the Firestore trip status to "completed".
 
-        if (!cancelled && onComplete) {
-          onComplete();
+            The Firestore listener in LiveTrip.jsx receives
+            the update and disables this tracker automatically.
+          */
+
+          const reachedFinalStop =
+            stopIndex === route.stops.length - 1;
+
+          if (reachedFinalStop) {
+            console.log(
+              "Demo route completed. Trip automatically completed."
+            );
+
+            if (!cancelled && onComplete) {
+              onComplete();
+            }
+
+            return;
+          }
+
+          await wait(route.demoSpeedMs);
         }
       } catch (demoError) {
         console.error(
