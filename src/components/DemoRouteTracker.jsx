@@ -13,10 +13,68 @@ import { getRouteById } from "../data/routes";
 const MOVEMENT_UPDATE_MS = 500;
 const STEPS_BETWEEN_STOPS = 8;
 
+const EARTH_RADIUS_METERS = 6371000;
+const DEMO_BUS_SPEED_KMH = 25;
+
 function wait(milliseconds) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, milliseconds);
   });
+}
+
+function degreesToRadians(degrees) {
+  return degrees * (Math.PI / 180);
+}
+
+function getDistanceMeters(
+  latitude1,
+  longitude1,
+  latitude2,
+  longitude2
+) {
+  const latitudeDifference = degreesToRadians(
+    latitude2 - latitude1
+  );
+
+  const longitudeDifference = degreesToRadians(
+    longitude2 - longitude1
+  );
+
+  const firstLatitude = degreesToRadians(latitude1);
+  const secondLatitude = degreesToRadians(latitude2);
+
+  const haversineValue =
+    Math.sin(latitudeDifference / 2) ** 2 +
+    Math.cos(firstLatitude) *
+      Math.cos(secondLatitude) *
+      Math.sin(longitudeDifference / 2) ** 2;
+
+  const angularDistance =
+    2 *
+    Math.atan2(
+      Math.sqrt(haversineValue),
+      Math.sqrt(1 - haversineValue)
+    );
+
+  return EARTH_RADIUS_METERS * angularDistance;
+}
+
+function calculateEtaSeconds(distanceMeters, speedKmh) {
+  if (
+    !Number.isFinite(distanceMeters) ||
+    !Number.isFinite(speedKmh) ||
+    speedKmh <= 0
+  ) {
+    return null;
+  }
+
+  const speedMetersPerSecond =
+    (speedKmh * 1000) / 3600;
+
+  return Math.max(
+    0,
+    Math.ceil(distanceMeters / speedMetersPerSecond)
+  );
 }
 
 function getIntermediatePosition(
@@ -48,10 +106,46 @@ function getNextStop(route, currentStopIndex) {
     id: nextStop.id,
     name: nextStop.name,
     index: nextStopIndex,
+    latitude: nextStop.latitude,
+    longitude: nextStop.longitude,
   };
 }
 
-async function updateDemoLocation(tripId, position) {
+function getDemoEtaData(position, nextStop) {
+  if (!nextStop) {
+    return {
+      nextStopDistanceMeters: null,
+      etaSeconds: null,
+      estimatedSpeedKmh: null,
+    };
+  }
+
+  const distanceMeters = getDistanceMeters(
+    position.latitude,
+    position.longitude,
+    nextStop.latitude,
+    nextStop.longitude
+  );
+
+  return {
+    nextStopDistanceMeters: Math.round(distanceMeters),
+
+    etaSeconds: calculateEtaSeconds(
+      distanceMeters,
+      DEMO_BUS_SPEED_KMH
+    ),
+
+    estimatedSpeedKmh: DEMO_BUS_SPEED_KMH,
+  };
+}
+
+async function updateDemoLocation({
+  tripId,
+  position,
+  nextStop,
+}) {
+  const etaData = getDemoEtaData(position, nextStop);
+
   await updateDoc(doc(db, "trips", tripId), {
     busLocation: {
       latitude: position.latitude,
@@ -65,6 +159,14 @@ async function updateDemoLocation(tripId, position) {
     currentStopId: null,
     currentStopName: null,
     currentStopDistanceMeters: null,
+
+    nextStopDistanceMeters:
+      etaData.nextStopDistanceMeters,
+
+    nextStopEtaSeconds: etaData.etaSeconds,
+
+    estimatedSpeedKmh:
+      etaData.estimatedSpeedKmh,
   });
 }
 
@@ -102,7 +204,16 @@ async function recordDemoArrival({
       await transaction.get(arrivalRef);
 
     const nextStop = getNextStop(route, stopIndex);
+
     const routeCompleted = nextStop === null;
+
+    const etaData = getDemoEtaData(
+      {
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+      },
+      nextStop
+    );
 
     if (!arrivalSnapshot.exists()) {
       transaction.set(arrivalRef, {
@@ -139,6 +250,14 @@ async function recordDemoArrival({
       nextStopIndex: nextStop?.index ?? null,
 
       routeCompleted,
+
+      nextStopDistanceMeters:
+        etaData.nextStopDistanceMeters,
+
+      nextStopEtaSeconds: etaData.etaSeconds,
+
+      estimatedSpeedKmh:
+        etaData.estimatedSpeedKmh,
     });
   });
 }
@@ -218,10 +337,11 @@ export default function DemoRouteTracker({
                 progress
               );
 
-            await updateDemoLocation(
+            await updateDemoLocation({
               tripId,
-              intermediatePosition
-            );
+              position: intermediatePosition,
+              nextStop,
+            });
 
             await wait(MOVEMENT_UPDATE_MS);
           }

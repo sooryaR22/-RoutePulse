@@ -385,16 +385,18 @@ export default function LiveTrip() {
     currentUser && currentUser.uid === trip.conductorId;
 
   const tripIsActive = trip.status === "active";
+
   const routeId = trip.routeId || DEFAULT_ROUTE_ID;
+
   const route = getRouteById(routeId);
+
   const crowdLevel = getCrowdLevel(participantCount);
 
   const totalStops = route?.stops.length || 0;
 
-  const reachedStops =
-    Number.isInteger(trip.lastArrivedStopIndex)
-      ? Math.min(trip.lastArrivedStopIndex + 1, totalStops)
-      : 0;
+  const reachedStops = Number.isInteger(trip.lastArrivedStopIndex)
+    ? Math.min(trip.lastArrivedStopIndex + 1, totalStops)
+    : 0;
 
   const progressPercentage =
     totalStops > 0
@@ -411,6 +413,36 @@ export default function LiveTrip() {
     : trip.nextStopName ||
       route?.stops[0]?.name ||
       "Waiting for route data";
+
+  const nextStopDistanceMeters = Number.isFinite(
+    trip.nextStopDistanceMeters
+  )
+    ? trip.nextStopDistanceMeters
+    : null;
+
+  const nextStopEtaSeconds = Number.isFinite(
+  trip.nextStopEtaSeconds
+)
+  ? trip.nextStopEtaSeconds
+  : null;
+
+const formattedNextStopDistance =
+  nextStopDistanceMeters === null
+    ? "--"
+    : nextStopDistanceMeters >= 1000
+    ? `${(nextStopDistanceMeters / 1000).toFixed(1)} km`
+    : `${Math.round(nextStopDistanceMeters)} m`;
+
+const formattedNextStopEta =
+  nextStopEtaSeconds === null
+    ? "--"
+    : nextStopEtaSeconds <= 0
+    ? "Arriving"
+    : nextStopEtaSeconds >= 60
+    ? `${Math.floor(nextStopEtaSeconds / 60)} min ${
+        nextStopEtaSeconds % 60
+      } sec`
+    : `${nextStopEtaSeconds} sec`;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white px-6 py-8 sm:py-12">
@@ -600,7 +632,7 @@ export default function LiveTrip() {
                 </p>
               </div>
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-5">
                   <p className="text-xs font-semibold tracking-[0.12em] text-zinc-600">
                     LAST STOP
@@ -618,6 +650,38 @@ export default function LiveTrip() {
 
                   <p className="mt-2 font-semibold text-blue-300">
                     {nextStopName}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-5">
+                  <p className="text-xs font-semibold tracking-[0.12em] text-zinc-600">
+                    DISTANCE
+                  </p>
+
+                  <p className="mt-2 text-xl font-bold text-white">
+                    {routeCompleted
+                      ? "0 m"
+                      : formattedNextStopDistance}
+                  </p>
+
+                  <p className="mt-1 text-xs text-zinc-600">
+                    to next stop
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-purple-500/15 bg-purple-500/[0.06] p-5">
+                  <p className="text-xs font-semibold tracking-[0.12em] text-purple-500">
+                    ESTIMATED ARRIVAL
+                  </p>
+
+                  <p className="mt-2 text-xl font-bold text-purple-300">
+                    {routeCompleted
+                      ? "Arrived"
+                      : formattedNextStopEta}
+                  </p>
+
+                  <p className="mt-1 text-xs text-zinc-600">
+                    live ETA
                   </p>
                 </div>
               </div>
@@ -642,6 +706,7 @@ export default function LiveTrip() {
 
               <div className="mt-3 flex justify-between text-xs text-zinc-700">
                 <span>{route?.stops[0]?.name || "Start"}</span>
+
                 <span>
                   {route?.stops[route.stops.length - 1]?.name ||
                     "Destination"}

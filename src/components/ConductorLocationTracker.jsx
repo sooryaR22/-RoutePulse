@@ -13,6 +13,10 @@ import { getRouteById } from "../data/routes";
 const LOCATION_UPDATE_INTERVAL_MS = 5000;
 const EARTH_RADIUS_METERS = 6371000;
 
+const FALLBACK_BUS_SPEED_KMH = 25;
+const MINIMUM_USABLE_SPEED_KMH = 5;
+const MAXIMUM_USABLE_SPEED_KMH = 100;
+
 function degreesToRadians(degrees) {
   return degrees * (Math.PI / 180);
 }
@@ -96,6 +100,83 @@ function getNextStop(route, currentStopIndex) {
     id: nextStop.id,
     name: nextStop.name,
     index: nextStopIndex,
+    latitude: nextStop.latitude,
+    longitude: nextStop.longitude,
+  };
+}
+
+function getUsableSpeedKmh(speedMetersPerSecond) {
+  if (!Number.isFinite(speedMetersPerSecond)) {
+    return FALLBACK_BUS_SPEED_KMH;
+  }
+
+  const speedKmh = speedMetersPerSecond * 3.6;
+
+  if (
+    speedKmh < MINIMUM_USABLE_SPEED_KMH ||
+    speedKmh > MAXIMUM_USABLE_SPEED_KMH
+  ) {
+    return FALLBACK_BUS_SPEED_KMH;
+  }
+
+  return speedKmh;
+}
+
+function calculateEtaMinutes(distanceMeters, speedKmh) {
+  if (
+    !Number.isFinite(distanceMeters) ||
+    !Number.isFinite(speedKmh) ||
+    speedKmh <= 0
+  ) {
+    return null;
+  }
+
+  const distanceKilometers = distanceMeters / 1000;
+  const travelHours = distanceKilometers / speedKmh;
+  const travelMinutes = travelHours * 60;
+
+  return Math.max(1, Math.ceil(travelMinutes));
+}
+
+function getNextStopEtaData({
+  route,
+  nextStopIndex,
+  latitude,
+  longitude,
+  speedMetersPerSecond,
+}) {
+  if (
+    !Number.isInteger(nextStopIndex) ||
+    nextStopIndex < 0 ||
+    nextStopIndex >= route.stops.length
+  ) {
+    return {
+      nextStopDistanceMeters: null,
+      etaMinutes: null,
+      estimatedSpeedKmh: null,
+    };
+  }
+
+  const nextStop = route.stops[nextStopIndex];
+
+  const distanceMeters = getDistanceMeters(
+    latitude,
+    longitude,
+    nextStop.latitude,
+    nextStop.longitude
+  );
+
+  const speedKmh = getUsableSpeedKmh(
+    speedMetersPerSecond
+  );
+
+  return {
+    nextStopDistanceMeters: Math.round(distanceMeters),
+    etaMinutes: calculateEtaMinutes(
+      distanceMeters,
+      speedKmh
+    ),
+    estimatedSpeedKmh: Math.round(speedKmh),
   };
 }
 
@@ -161,6 +242,14 @@ async function recordStopArrival({
       nextStopIndex: nextStop?.index ?? null,
 
       routeCompleted,
+
+      ...(routeCompleted
+        ? {
+            nextStopDistanceMeters: null,
+            etaMinutes: null,
+            estimatedSpeedKmh: null,
+          }
+        : {}),
     });
   });
 }
@@ -208,8 +297,12 @@ export default function ConductorLocationTracker({
 
       lastUpdateTime = now;
 
-      const { latitude, longitude, accuracy } =
-        position.coords;
+      const {
+        latitude,
+        longitude,
+        accuracy,
+        speed,
+      } = position.coords;
 
       const detectedStop = findStopInsideGeofence(
         route,
@@ -236,25 +329,11 @@ export default function ConductorLocationTracker({
       lastDetectedStopId = detectedStop?.id || null;
 
       try {
-        await updateDoc(doc(db, "trips", tripId), {
-          busLocation: {
-            latitude,
-            longitude,
-            accuracy,
-            source: "conductor-gps",
-          },
-
-          locationUpdatedAt: serverTimestamp(),
-
-          currentStopId: detectedStop?.id || null,
-
-          currentStopName: detectedStop?.name || null,
-
-          currentStopDistanceMeters: detectedStop
-            ? Math.round(detectedStop.distanceMeters)
-            : null,
-        });
-
+        /*
+         * Record the arrival first.
+         *
+         * This updates nextStopIndex before we calculate ETA.
+         */
         if (enteredNewStop) {
           await recordStopArrival({
             tripId,
@@ -267,9 +346,65 @@ export default function ConductorLocationTracker({
             `Recorded stop arrival: ${detectedStop.name}`
           );
         }
+
+        /*
+         * Read the current trip so ETA uses the latest nextStopIndex.
+         */
+        const tripRef = doc(db, "trips", tripId);
+
+        const etaData = await runTransaction(
+          db,
+          async (transaction) => {
+            const tripSnapshot =
+              await transaction.get(tripRef);
+
+            if (!tripSnapshot.exists()) {
+              throw new Error("Trip does not exist.");
+            }
+
+            const tripData = tripSnapshot.data();
+
+            return getNextStopEtaData({
+              route,
+              nextStopIndex: tripData.nextStopIndex,
+              latitude,
+              longitude,
+              speedMetersPerSecond: speed,
+            });
+          }
+        );
+
+        await updateDoc(tripRef, {
+          busLocation: {
+            latitude,
+            longitude,
+            accuracy,
+            speedMetersPerSecond:
+              Number.isFinite(speed) ? speed : null,
+            source: "conductor-gps",
+          },
+
+          locationUpdatedAt: serverTimestamp(),
+
+          currentStopId: detectedStop?.id || null,
+
+          currentStopName: detectedStop?.name || null,
+
+          currentStopDistanceMeters: detectedStop
+            ? Math.round(detectedStop.distanceMeters)
+            : null,
+
+          nextStopDistanceMeters:
+            etaData.nextStopDistanceMeters,
+
+          etaMinutes: etaData.etaMinutes,
+
+          estimatedSpeedKmh:
+            etaData.estimatedSpeedKmh,
+        });
       } catch (locationUpdateError) {
         console.error(
-          "Failed to update conductor location or record arrival:",
+          "Failed to update conductor location, ETA, or record arrival:",
           locationUpdateError
         );
       }
