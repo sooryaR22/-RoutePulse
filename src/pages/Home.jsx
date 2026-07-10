@@ -5,7 +5,10 @@ import { onAuthStateChanged } from "firebase/auth";
 
 import { auth } from "../firebase";
 
-const CONDUCTOR_UID = "F4ypVGrCxNOdlQq4RlF6K7sTAp52";
+const CONDUCTOR_UIDS = [
+  "F4ypVGrCxNOdlQq4RlF6K7sTAp52",
+  "tFRDNtX6xdbs0SqAZFMeT7oRNqI3",
+];
 
 export default function Home() {
   const navigate = useNavigate();
@@ -23,9 +26,9 @@ export default function Home() {
 
     return () => unsubscribe();
   }, []);
-
-  const isConductor =
-    currentUser?.uid === CONDUCTOR_UID;
+const isConductor =
+  currentUser &&
+  CONDUCTOR_UIDS.includes(currentUser.uid);
 
   console.log("CURRENT USER:", currentUser);
   console.log("CURRENT UID:", currentUser?.uid);

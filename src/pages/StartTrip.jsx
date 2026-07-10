@@ -18,7 +18,10 @@ import {
   getRouteById,
 } from "../data/routes";
 
-const CONDUCTOR_UID = "F4ypVGrCxNOdlQq4RlF6K7sTAp52";
+const CONDUCTOR_UIDS = [
+  "F4ypVGrCxNOdlQq4RlF6K7sTAp52",
+  "tFRDNtX6xdbs0SqAZFMeT7oRNqI3",
+];
 
 export default function StartTrip() {
   const navigate = useNavigate();
@@ -35,7 +38,7 @@ export default function StartTrip() {
     const checkConductorAccess = async () => {
       const user = auth.currentUser;
 
-      if (!user || user.uid !== CONDUCTOR_UID) {
+      if (!user || !CONDUCTOR_UIDS.includes(user.uid)) {
         navigate("/", {
           replace: true,
         });
