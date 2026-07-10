@@ -1,16 +1,36 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { onAuthStateChanged } from "firebase/auth";
+
 import { auth } from "../firebase";
 
-const CONDUCTOR_UID = "zrTbbzVV4nSlYfsCYo74NJAE7422";
+const CONDUCTOR_UID = "F4ypVGrCxNOdlQq4RlF6K7sTAp52";
 
 export default function Home() {
   const navigate = useNavigate();
 
-  const currentUser = auth.currentUser;
+  const [currentUser, setCurrentUser] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("AUTH STATE CHANGED:", user);
+
+      setCurrentUser(user);
+      setCheckingAuth(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const isConductor =
-    currentUser && currentUser.uid === CONDUCTOR_UID;
+    currentUser?.uid === CONDUCTOR_UID;
+
+  console.log("CURRENT USER:", currentUser);
+  console.log("CURRENT UID:", currentUser?.uid);
+  console.log("EXPECTED CONDUCTOR UID:", CONDUCTOR_UID);
+  console.log("IS CONDUCTOR:", isConductor);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
@@ -86,73 +106,82 @@ export default function Home() {
           better travel decisions.
         </motion.p>
 
+        {/* Loading auth */}
+        {checkingAuth && (
+          <div className="mt-10 rounded-2xl border border-white/[0.07] bg-white/[0.025] px-6 py-5 text-sm text-zinc-500">
+            Checking authentication...
+          </div>
+        )}
+
         {/* Main actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.28 }}
-          className={`mt-10 grid w-full gap-4 ${
-            isConductor
-              ? "max-w-3xl md:grid-cols-2"
-              : "max-w-xl"
-          }`}
-        >
-          {/* Passenger card */}
-          <button
-            onClick={() => navigate("/join-trip")}
-            className="group rounded-2xl border border-blue-400/20 bg-gradient-to-br from-blue-600 to-blue-800 p-6 text-left shadow-[0_20px_70px_rgba(37,99,235,0.22)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_25px_90px_rgba(37,99,235,0.32)]"
+        {!checkingAuth && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.28 }}
+            className={`mt-10 grid w-full gap-4 ${
+              isConductor
+                ? "max-w-3xl md:grid-cols-2"
+                : "max-w-xl"
+            }`}
           >
-            <div className="flex items-start justify-between gap-5">
-              <div>
-                <p className="text-sm font-semibold text-blue-100/70">
-                  PASSENGER
-                </p>
-
-                <h2 className="mt-2 text-2xl font-bold">
-                  Find an active bus
-                </h2>
-
-                <p className="mt-3 text-sm leading-6 text-blue-100/70">
-                  Explore live trips, view crowd levels, and contribute
-                  your presence.
-                </p>
-              </div>
-
-              <span className="text-2xl transition group-hover:translate-x-1">
-                →
-              </span>
-            </div>
-          </button>
-
-          {/* Only authorized conductor sees this */}
-          {isConductor && (
+            {/* Passenger card */}
             <button
-              onClick={() => navigate("/start-trip")}
-              className="group rounded-2xl border border-white/10 bg-white/[0.05] p-6 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]"
+              onClick={() => navigate("/join-trip")}
+              className="group rounded-2xl border border-blue-400/20 bg-gradient-to-br from-blue-600 to-blue-800 p-6 text-left shadow-[0_20px_70px_rgba(37,99,235,0.22)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_25px_90px_rgba(37,99,235,0.32)]"
             >
               <div className="flex items-start justify-between gap-5">
                 <div>
-                  <p className="text-sm font-semibold text-zinc-500">
-                    CONDUCTOR
+                  <p className="text-sm font-semibold text-blue-100/70">
+                    PASSENGER
                   </p>
 
                   <h2 className="mt-2 text-2xl font-bold">
-                    Start a live trip
+                    Find an active bus
                   </h2>
 
-                  <p className="mt-3 text-sm leading-6 text-zinc-400">
-                    Publish your bus to the RoutePulse network and
-                    monitor passenger activity live.
+                  <p className="mt-3 text-sm leading-6 text-blue-100/70">
+                    Explore live trips, view crowd levels, and contribute
+                    your presence.
                   </p>
                 </div>
 
-                <span className="text-2xl text-zinc-500 transition group-hover:translate-x-1 group-hover:text-white">
+                <span className="text-2xl transition group-hover:translate-x-1">
                   →
                 </span>
               </div>
             </button>
-          )}
-        </motion.div>
+
+            {/* Conductor card */}
+            {isConductor && (
+              <button
+                onClick={() => navigate("/start-trip")}
+                className="group rounded-2xl border border-white/10 bg-white/[0.05] p-6 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]"
+              >
+                <div className="flex items-start justify-between gap-5">
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-500">
+                      CONDUCTOR
+                    </p>
+
+                    <h2 className="mt-2 text-2xl font-bold">
+                      Start a live trip
+                    </h2>
+
+                    <p className="mt-3 text-sm leading-6 text-zinc-400">
+                      Publish your bus to the RoutePulse network and
+                      monitor passenger activity live.
+                    </p>
+                  </div>
+
+                  <span className="text-2xl text-zinc-500 transition group-hover:translate-x-1 group-hover:text-white">
+                    →
+                  </span>
+                </div>
+              </button>
+            )}
+          </motion.div>
+        )}
 
         {/* Feature cards */}
         <motion.div

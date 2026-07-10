@@ -18,7 +18,7 @@ import {
   getRouteById,
 } from "../data/routes";
 
-const CONDUCTOR_UID = "zrTbbzVV4nSlYfsCYo74NJAE7422";
+const CONDUCTOR_UID = "F4ypVGrCxNOdlQq4RlF6K7sTAp52";
 
 export default function StartTrip() {
   const navigate = useNavigate();
