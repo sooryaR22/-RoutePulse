@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+
 import {
   Circle,
   MapContainer,
@@ -12,6 +13,8 @@ import {
 import L from "leaflet";
 
 import { getRouteById } from "../data/routes";
+
+const BUS_ANIMATION_DURATION_MS = 900;
 
 const stopIcon = L.divIcon({
   className: "",
@@ -72,6 +75,106 @@ function FitRouteBounds({ stops }) {
   }, [map, stops]);
 
   return null;
+}
+
+function AnimatedBusMarker({ position }) {
+  const [animatedPosition, setAnimatedPosition] =
+    useState(position);
+
+  const currentPositionRef = useRef(position);
+  const animationFrameRef = useRef(null);
+
+  useEffect(() => {
+    const startPosition = currentPositionRef.current;
+    const targetPosition = position;
+
+    const latitudeDifference =
+      targetPosition[0] - startPosition[0];
+
+    const longitudeDifference =
+      targetPosition[1] - startPosition[1];
+
+    if (
+      latitudeDifference === 0 &&
+      longitudeDifference === 0
+    ) {
+      return undefined;
+    }
+
+    if (animationFrameRef.current) {
+      window.cancelAnimationFrame(
+        animationFrameRef.current
+      );
+    }
+
+    const animationStartTime = performance.now();
+
+    const animateMarker = (currentTime) => {
+      const elapsedTime =
+        currentTime - animationStartTime;
+
+      const progress = Math.min(
+        elapsedTime / BUS_ANIMATION_DURATION_MS,
+        1
+      );
+
+      const easedProgress =
+        progress < 0.5
+          ? 2 * progress * progress
+          : 1 -
+            Math.pow(-2 * progress + 2, 2) / 2;
+
+      const nextPosition = [
+        startPosition[0] +
+          latitudeDifference * easedProgress,
+
+        startPosition[1] +
+          longitudeDifference * easedProgress,
+      ];
+
+      currentPositionRef.current = nextPosition;
+
+      setAnimatedPosition(nextPosition);
+
+      if (progress < 1) {
+        animationFrameRef.current =
+          window.requestAnimationFrame(
+            animateMarker
+          );
+      } else {
+        currentPositionRef.current = targetPosition;
+        setAnimatedPosition(targetPosition);
+        animationFrameRef.current = null;
+      }
+    };
+
+    animationFrameRef.current =
+      window.requestAnimationFrame(animateMarker);
+
+    return () => {
+      if (animationFrameRef.current) {
+        window.cancelAnimationFrame(
+          animationFrameRef.current
+        );
+      }
+    };
+  }, [position[0], position[1]]);
+
+  return (
+    <Marker
+      position={animatedPosition}
+      icon={busIcon}
+      zIndexOffset={1000}
+    >
+      <Popup>
+        <strong>RoutePulse Bus</strong>
+
+        <br />
+
+        Current bus position
+      </Popup>
+    </Marker>
+  );
 }
 
 export default function RouteMap({
@@ -188,19 +291,7 @@ export default function RouteMap({
             </Marker>
           ))}
 
-          <Marker
-            position={busPosition}
-            icon={busIcon}
-            zIndexOffset={1000}
-          >
-            <Popup>
-              <strong>RoutePulse Bus</strong>
-
-              <br />
-
-              Current bus position
-            </Popup>
-          </Marker>
+          <AnimatedBusMarker position={busPosition} />
 
           <FitRouteBounds stops={route.stops} />
         </MapContainer>
