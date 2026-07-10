@@ -16,7 +16,10 @@ import { auth, db } from "../firebase";
 import RouteMap from "../components/RouteMap";
 import ConductorLocationTracker from "../components/ConductorLocationTracker";
 import DemoRouteTracker from "../components/DemoRouteTracker";
-import { DEFAULT_ROUTE_ID } from "../data/routes";
+import {
+  DEFAULT_ROUTE_ID,
+  getRouteById,
+} from "../data/routes";
 
 function getCrowdLevel(count) {
   if (count <= 5) {
@@ -51,29 +54,20 @@ export default function LiveTrip() {
 
   const [trip, setTrip] = useState(null);
   const [participantCount, setParticipantCount] = useState(0);
-
   const [loading, setLoading] = useState(true);
-
-  const [
-    checkingContribution,
-    setCheckingContribution,
-  ] = useState(true);
-
+  const [checkingContribution, setCheckingContribution] =
+    useState(true);
   const [hasContributed, setHasContributed] = useState(false);
-
   const [contributing, setContributing] = useState(false);
   const [leavingBus, setLeavingBus] = useState(false);
   const [endingTrip, setEndingTrip] = useState(false);
   const [copied, setCopied] = useState(false);
-
   const [demoRunning, setDemoRunning] = useState(false);
   const [demoCompleted, setDemoCompleted] = useState(false);
-
   const [error, setError] = useState("");
 
   const currentUser = auth.currentUser;
 
-  // Listen to the trip document.
   useEffect(() => {
     const tripRef = doc(db, "trips", tripId);
 
@@ -95,11 +89,7 @@ export default function LiveTrip() {
         setLoading(false);
       },
       (snapshotError) => {
-        console.error(
-          "Live trip listener failed:",
-          snapshotError
-        );
-
+        console.error("Live trip listener failed:", snapshotError);
         setError("Could not load live trip.");
         setLoading(false);
       }
@@ -108,7 +98,6 @@ export default function LiveTrip() {
     return () => unsubscribe();
   }, [tripId]);
 
-  // Listen to all participants for live passenger count.
   useEffect(() => {
     const participantsRef = collection(
       db,
@@ -135,7 +124,6 @@ export default function LiveTrip() {
     return () => unsubscribe();
   }, [tripId]);
 
-  // Listen to current passenger's participant document.
   useEffect(() => {
     if (!currentUser) {
       setCheckingContribution(false);
@@ -280,11 +268,7 @@ export default function LiveTrip() {
 
       await deleteDoc(participantRef);
     } catch (leaveError) {
-      console.error(
-        "Failed to stop contributing:",
-        leaveError
-      );
-
+      console.error("Failed to stop contributing:", leaveError);
       setError("Could not stop contributing. Please try again.");
     } finally {
       setLeavingBus(false);
@@ -354,7 +338,6 @@ export default function LiveTrip() {
       });
     } catch (endTripError) {
       console.error("Failed to end trip:", endTripError);
-
       setError("Could not end the trip. Please try again.");
     } finally {
       setEndingTrip(false);
@@ -364,7 +347,6 @@ export default function LiveTrip() {
   const handleCopyTripId = async () => {
     try {
       await navigator.clipboard.writeText(tripId);
-
       setCopied(true);
 
       window.setTimeout(() => {
@@ -372,7 +354,6 @@ export default function LiveTrip() {
       }, 2000);
     } catch (copyError) {
       console.error("Could not copy Trip ID:", copyError);
-
       setError("Could not copy the Trip ID.");
     }
   };
@@ -401,14 +382,35 @@ export default function LiveTrip() {
   }
 
   const isConductor =
-    currentUser &&
-    currentUser.uid === trip.conductorId;
+    currentUser && currentUser.uid === trip.conductorId;
 
   const tripIsActive = trip.status === "active";
-
   const routeId = trip.routeId || DEFAULT_ROUTE_ID;
-
+  const route = getRouteById(routeId);
   const crowdLevel = getCrowdLevel(participantCount);
+
+  const totalStops = route?.stops.length || 0;
+
+  const reachedStops =
+    Number.isInteger(trip.lastArrivedStopIndex)
+      ? Math.min(trip.lastArrivedStopIndex + 1, totalStops)
+      : 0;
+
+  const progressPercentage =
+    totalStops > 0
+      ? Math.min((reachedStops / totalStops) * 100, 100)
+      : 0;
+
+  const routeCompleted = Boolean(trip.routeCompleted);
+
+  const lastStopName =
+    trip.lastArrivedStopName || "Trip not started";
+
+  const nextStopName = routeCompleted
+    ? "Destination reached"
+    : trip.nextStopName ||
+      route?.stops[0]?.name ||
+      "Waiting for route data";
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white px-6 py-8 sm:py-12">
@@ -416,9 +418,7 @@ export default function LiveTrip() {
         tripId={tripId}
         routeId={routeId}
         enabled={Boolean(
-          isConductor &&
-            tripIsActive &&
-            !demoRunning
+          isConductor && tripIsActive && !demoRunning
         )}
       />
 
@@ -426,16 +426,13 @@ export default function LiveTrip() {
         tripId={tripId}
         routeId={routeId}
         enabled={Boolean(
-          isConductor &&
-            tripIsActive &&
-            demoRunning
+          isConductor && tripIsActive && demoRunning
         )}
         onComplete={handleDemoComplete}
       />
 
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-[-300px] h-[650px] w-[850px] -translate-x-1/2 rounded-full bg-blue-600/15 blur-[160px]" />
-
         <div className="absolute bottom-[-300px] right-[-200px] h-[500px] w-[500px] rounded-full bg-indigo-600/10 blur-[150px]" />
       </div>
 
@@ -579,6 +576,76 @@ export default function LiveTrip() {
                   Share this Trip ID with passengers so they can open
                   this live trip directly.
                 </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-white/[0.07] px-6 py-6 sm:px-9">
+            <div className="rounded-3xl border border-white/[0.07] bg-black/20 p-6 sm:p-8">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold tracking-[0.16em] text-blue-400">
+                    ROUTE PROGRESS
+                  </p>
+
+                  <h2 className="mt-2 text-2xl font-bold">
+                    {routeCompleted
+                      ? "Destination reached"
+                      : `${reachedStops} of ${totalStops} stops reached`}
+                  </h2>
+                </div>
+
+                <p className="text-3xl font-black text-white">
+                  {Math.round(progressPercentage)}%
+                </p>
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-5">
+                  <p className="text-xs font-semibold tracking-[0.12em] text-zinc-600">
+                    LAST STOP
+                  </p>
+
+                  <p className="mt-2 font-semibold text-zinc-200">
+                    {lastStopName}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-blue-500/15 bg-blue-500/[0.06] p-5">
+                  <p className="text-xs font-semibold tracking-[0.12em] text-blue-500">
+                    {routeCompleted ? "ROUTE STATUS" : "NEXT STOP"}
+                  </p>
+
+                  <p className="mt-2 font-semibold text-blue-300">
+                    {nextStopName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 h-3 overflow-hidden rounded-full bg-white/[0.06]">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{
+                    width: `${progressPercentage}%`,
+                  }}
+                  transition={{
+                    duration: 0.65,
+                    ease: "easeOut",
+                  }}
+                  className={`h-full rounded-full ${
+                    routeCompleted
+                      ? "bg-green-500"
+                      : "bg-gradient-to-r from-blue-600 to-blue-400"
+                  }`}
+                />
+              </div>
+
+              <div className="mt-3 flex justify-between text-xs text-zinc-700">
+                <span>{route?.stops[0]?.name || "Start"}</span>
+                <span>
+                  {route?.stops[route.stops.length - 1]?.name ||
+                    "Destination"}
+                </span>
               </div>
             </div>
           </div>
