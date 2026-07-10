@@ -19,7 +19,11 @@ function wait(milliseconds) {
   });
 }
 
-function getIntermediatePosition(startStop, endStop, progress) {
+function getIntermediatePosition(
+  startStop,
+  endStop,
+  progress
+) {
   return {
     latitude:
       startStop.latitude +
@@ -28,6 +32,22 @@ function getIntermediatePosition(startStop, endStop, progress) {
     longitude:
       startStop.longitude +
       (endStop.longitude - startStop.longitude) * progress,
+  };
+}
+
+function getNextStop(route, currentStopIndex) {
+  const nextStopIndex = currentStopIndex + 1;
+
+  if (nextStopIndex >= route.stops.length) {
+    return null;
+  }
+
+  const nextStop = route.stops[nextStopIndex];
+
+  return {
+    id: nextStop.id,
+    name: nextStop.name,
+    index: nextStopIndex,
   };
 }
 
@@ -51,6 +71,7 @@ async function updateDemoLocation(tripId, position) {
 async function recordDemoArrival({
   tripId,
   routeId,
+  route,
   stop,
   stopIndex,
 }) {
@@ -79,6 +100,9 @@ async function recordDemoArrival({
 
     const arrivalSnapshot =
       await transaction.get(arrivalRef);
+
+    const nextStop = getNextStop(route, stopIndex);
+    const routeCompleted = nextStop === null;
 
     if (!arrivalSnapshot.exists()) {
       transaction.set(arrivalRef, {
@@ -109,6 +133,12 @@ async function recordDemoArrival({
       lastArrivedStopName: stop.name,
       lastArrivedStopIndex: stopIndex,
       lastArrivedAt: serverTimestamp(),
+
+      nextStopId: nextStop?.id || null,
+      nextStopName: nextStop?.name || null,
+      nextStopIndex: nextStop?.index ?? null,
+
+      routeCompleted,
     });
   });
 }
@@ -143,6 +173,7 @@ export default function DemoRouteTracker({
         await recordDemoArrival({
           tripId,
           routeId,
+          route,
           stop: firstStop,
           stopIndex: 0,
         });
@@ -162,8 +193,11 @@ export default function DemoRouteTracker({
             return;
           }
 
-          const previousStop = route.stops[stopIndex - 1];
-          const nextStop = route.stops[stopIndex];
+          const previousStop =
+            route.stops[stopIndex - 1];
+
+          const nextStop =
+            route.stops[stopIndex];
 
           for (
             let movementStep = 1;
@@ -199,6 +233,7 @@ export default function DemoRouteTracker({
           await recordDemoArrival({
             tripId,
             routeId,
+            route,
             stop: nextStop,
             stopIndex,
           });

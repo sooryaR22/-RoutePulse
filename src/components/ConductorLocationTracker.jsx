@@ -50,7 +50,11 @@ function getDistanceMeters(
   return EARTH_RADIUS_METERS * angularDistance;
 }
 
-function findStopInsideGeofence(route, latitude, longitude) {
+function findStopInsideGeofence(
+  route,
+  latitude,
+  longitude
+) {
   let nearestStop = null;
 
   route.stops.forEach((stop, index) => {
@@ -79,9 +83,26 @@ function findStopInsideGeofence(route, latitude, longitude) {
   return nearestStop;
 }
 
+function getNextStop(route, currentStopIndex) {
+  const nextStopIndex = currentStopIndex + 1;
+
+  if (nextStopIndex >= route.stops.length) {
+    return null;
+  }
+
+  const nextStop = route.stops[nextStopIndex];
+
+  return {
+    id: nextStop.id,
+    name: nextStop.name,
+    index: nextStopIndex,
+  };
+}
+
 async function recordStopArrival({
   tripId,
   routeId,
+  route,
   detectedStop,
 }) {
   const tripRef = doc(db, "trips", tripId);
@@ -114,6 +135,13 @@ async function recordStopArrival({
       return;
     }
 
+    const nextStop = getNextStop(
+      route,
+      detectedStop.index
+    );
+
+    const routeCompleted = nextStop === null;
+
     transaction.set(arrivalRef, {
       stopId: detectedStop.id,
       stopName: detectedStop.name,
@@ -127,6 +155,12 @@ async function recordStopArrival({
       lastArrivedStopName: detectedStop.name,
       lastArrivedStopIndex: detectedStop.index,
       lastArrivedAt: serverTimestamp(),
+
+      nextStopId: nextStop?.id || null,
+      nextStopName: nextStop?.name || null,
+      nextStopIndex: nextStop?.index ?? null,
+
+      routeCompleted,
     });
   });
 }
@@ -193,7 +227,9 @@ export default function ConductorLocationTracker({
             `Bus entered stop geofence: ${detectedStop.name}`
           );
         } else if (lastDetectedStopId) {
-          console.log("Bus left the current stop geofence.");
+          console.log(
+            "Bus left the current stop geofence."
+          );
         }
       }
 
@@ -223,6 +259,7 @@ export default function ConductorLocationTracker({
           await recordStopArrival({
             tripId,
             routeId,
+            route,
             detectedStop,
           });
 
