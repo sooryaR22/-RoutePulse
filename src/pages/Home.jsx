@@ -8,6 +8,7 @@ import { auth } from "../firebase";
 const CONDUCTOR_UIDS = [
   "F4ypVGrCxNOdlQq4RlF6K7sTAp52",
   "tFRDNtX6xdbs0SqAZFMeT7oRNqI3",
+  "Wn1qloSisHNBVRGfzfwKJGY5CBc2",
 ];
 
 export default function Home() {
@@ -33,10 +34,7 @@ export default function Home() {
 
   console.log("CURRENT USER:", currentUser);
   console.log("CURRENT UID:", currentUser?.uid);
-  console.log(
-    "AUTHORIZED CONDUCTOR UIDS:",
-    CONDUCTOR_UIDS
-  );
+  console.log("AUTHORIZED CONDUCTOR UIDS:", CONDUCTOR_UIDS);
   console.log("IS CONDUCTOR:", isConductor);
 
   return (
@@ -55,9 +53,7 @@ export default function Home() {
           className="flex items-center gap-3"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/10 shadow-[0_0_25px_rgba(59,130,246,0.15)]">
-            <span className="text-lg font-bold text-blue-400">
-              R
-            </span>
+            <span className="text-lg font-bold text-blue-400">R</span>
           </div>
 
           <div className="text-left">
@@ -73,7 +69,6 @@ export default function Home() {
 
         <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-zinc-400 sm:flex">
           <span className="h-2 w-2 rounded-full bg-green-400 shadow-[0_0_12px_rgba(74,222,128,0.8)]" />
-
           Network online
         </div>
       </nav>
@@ -81,35 +76,18 @@ export default function Home() {
       {/* Hero */}
       <section className="relative z-10 mx-auto flex w-full max-w-7xl flex-col items-center px-6 pb-16 pt-16 text-center lg:px-10 lg:pt-24">
         <motion.div
-          initial={{
-            opacity: 0,
-            y: 16,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          transition={{
-            duration: 0.5,
-          }}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
           className="mb-6 rounded-full border border-blue-400/20 bg-blue-500/10 px-4 py-2 text-sm text-blue-300"
         >
           Real-time crowd intelligence for public transport
         </motion.div>
 
         <motion.h1
-          initial={{
-            opacity: 0,
-            y: 24,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          transition={{
-            duration: 0.6,
-            delay: 0.08,
-          }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.08 }}
           className="max-w-4xl text-5xl font-black leading-[1.05] tracking-[-0.04em] sm:text-6xl lg:text-7xl"
         >
           Know the crowd.
@@ -120,16 +98,9 @@ export default function Home() {
         </motion.h1>
 
         <motion.p
-          initial={{
-            opacity: 0,
-          }}
-          animate={{
-            opacity: 1,
-          }}
-          transition={{
-            duration: 0.6,
-            delay: 0.18,
-          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.18 }}
           className="mt-7 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg"
         >
           RoutePulse turns passenger contributions into live transit
@@ -147,18 +118,9 @@ export default function Home() {
         {/* Main actions */}
         {!checkingAuth && (
           <motion.div
-            initial={{
-              opacity: 0,
-              y: 20,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            transition={{
-              duration: 0.6,
-              delay: 0.28,
-            }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.28 }}
             className={`mt-10 grid w-full gap-4 ${
               isConductor
                 ? "max-w-3xl md:grid-cols-2"
@@ -181,8 +143,8 @@ export default function Home() {
                   </h2>
 
                   <p className="mt-3 text-sm leading-6 text-blue-100/70">
-                    Explore live trips, view crowd levels, and
-                    contribute your presence.
+                    Explore live trips, view crowd levels, and contribute
+                    your presence.
                   </p>
                 </div>
 
@@ -225,16 +187,9 @@ export default function Home() {
 
         {/* Feature cards */}
         <motion.div
-          initial={{
-            opacity: 0,
-          }}
-          animate={{
-            opacity: 1,
-          }}
-          transition={{
-            duration: 0.7,
-            delay: 0.4,
-          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.7, delay: 0.4 }}
           className="mt-16 grid w-full max-w-5xl gap-4 sm:grid-cols-3"
         >
           <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5 text-left">

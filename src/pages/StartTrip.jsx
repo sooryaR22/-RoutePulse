@@ -21,6 +21,7 @@ import {
 const CONDUCTOR_UIDS = [
   "F4ypVGrCxNOdlQq4RlF6K7sTAp52",
   "tFRDNtX6xdbs0SqAZFMeT7oRNqI3",
+  "Wn1qloSisHNBVRGfzfwKJGY5CBc2",
 ];
 
 export default function StartTrip() {
@@ -86,7 +87,7 @@ export default function StartTrip() {
 
     const user = auth.currentUser;
 
-    if (!user || user.uid !== CONDUCTOR_UID) {
+    if (!user || !CONDUCTOR_UIDS.includes(user.uid)) {
       navigate("/", {
         replace: true,
       });
