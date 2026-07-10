@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -15,6 +15,7 @@ import {
 import { auth, db } from "../firebase";
 import RouteMap from "../components/RouteMap";
 import ConductorLocationTracker from "../components/ConductorLocationTracker";
+import DemoRouteTracker from "../components/DemoRouteTracker";
 import { DEFAULT_ROUTE_ID } from "../data/routes";
 
 function getCrowdLevel(count) {
@@ -64,6 +65,9 @@ export default function LiveTrip() {
   const [leavingBus, setLeavingBus] = useState(false);
   const [endingTrip, setEndingTrip] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const [demoRunning, setDemoRunning] = useState(false);
+  const [demoCompleted, setDemoCompleted] = useState(false);
 
   const [error, setError] = useState("");
 
@@ -287,6 +291,33 @@ export default function LiveTrip() {
     }
   };
 
+  const handleStartDemo = () => {
+    if (demoRunning) {
+      return;
+    }
+
+    if (!trip || trip.status !== "active") {
+      setError("This trip is not active.");
+      return;
+    }
+
+    const user = auth.currentUser;
+
+    if (!user || user.uid !== trip.conductorId) {
+      setError("Only the conductor can start demo mode.");
+      return;
+    }
+
+    setError("");
+    setDemoCompleted(false);
+    setDemoRunning(true);
+  };
+
+  const handleDemoComplete = useCallback(() => {
+    setDemoRunning(false);
+    setDemoCompleted(true);
+  }, []);
+
   const handleEndTrip = async () => {
     if (!trip || trip.status !== "active" || endingTrip) {
       return;
@@ -314,6 +345,7 @@ export default function LiveTrip() {
 
     try {
       setEndingTrip(true);
+      setDemoRunning(false);
       setError("");
 
       await updateDoc(doc(db, "trips", tripId), {
@@ -374,15 +406,32 @@ export default function LiveTrip() {
 
   const tripIsActive = trip.status === "active";
 
+  const routeId = trip.routeId || DEFAULT_ROUTE_ID;
+
   const crowdLevel = getCrowdLevel(participantCount);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white px-6 py-8 sm:py-12">
       <ConductorLocationTracker
-  tripId={tripId}
-  routeId={trip.routeId || DEFAULT_ROUTE_ID}
-  enabled={Boolean(isConductor && tripIsActive)}
-/>
+        tripId={tripId}
+        routeId={routeId}
+        enabled={Boolean(
+          isConductor &&
+            tripIsActive &&
+            !demoRunning
+        )}
+      />
+
+      <DemoRouteTracker
+        tripId={tripId}
+        routeId={routeId}
+        enabled={Boolean(
+          isConductor &&
+            tripIsActive &&
+            demoRunning
+        )}
+        onComplete={handleDemoComplete}
+      />
 
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-[-300px] h-[650px] w-[850px] -translate-x-1/2 rounded-full bg-blue-600/15 blur-[160px]" />
@@ -425,6 +474,18 @@ export default function LiveTrip() {
                       ? "CONDUCTOR DASHBOARD"
                       : "PASSENGER VIEW"}
                   </span>
+
+                  {demoRunning && (
+                    <span className="rounded-full border border-purple-500/20 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-400">
+                      ● DEMO RUNNING
+                    </span>
+                  )}
+
+                  {demoCompleted && !demoRunning && (
+                    <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-400">
+                      DEMO COMPLETED
+                    </span>
+                  )}
                 </div>
 
                 <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl">
@@ -562,13 +623,27 @@ export default function LiveTrip() {
             )}
 
             {isConductor && tripIsActive && (
-              <button
-                onClick={handleEndTrip}
-                disabled={endingTrip}
-                className="w-full rounded-xl border border-red-500/20 bg-red-500/10 py-4 font-semibold text-red-400 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {endingTrip ? "Ending Trip..." : "End Live Trip"}
-              </button>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={handleStartDemo}
+                  disabled={demoRunning || endingTrip}
+                  className="w-full rounded-xl border border-purple-500/20 bg-purple-500/10 py-4 font-semibold text-purple-400 transition hover:bg-purple-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {demoRunning
+                    ? "Demo Route Running..."
+                    : demoCompleted
+                    ? "Run Demo Route Again"
+                    : "Start Demo Route"}
+                </button>
+
+                <button
+                  onClick={handleEndTrip}
+                  disabled={endingTrip || demoRunning}
+                  className="w-full rounded-xl border border-red-500/20 bg-red-500/10 py-4 font-semibold text-red-400 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {endingTrip ? "Ending Trip..." : "End Live Trip"}
+                </button>
+              </div>
             )}
 
             {!tripIsActive && (
@@ -590,7 +665,7 @@ export default function LiveTrip() {
 
         <section className="mt-6">
           <RouteMap
-            routeId={trip.routeId || DEFAULT_ROUTE_ID}
+            routeId={routeId}
             busLocation={trip.busLocation}
           />
         </section>

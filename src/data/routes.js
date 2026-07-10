@@ -4,7 +4,7 @@ export const ROUTES = {
 
     name: "Nagercoil → Kanyakumari",
 
-    demoSpeedMs: 1200,
+    demoSpeedMs: 4000,
 
     arrivalRadiusMeters: 100,
 
