@@ -54,7 +54,6 @@ export default function LiveTrip() {
   const navigate = useNavigate();
 
   const [trip, setTrip] = useState(null);
-
   const [participantCount, setParticipantCount] = useState(0);
 
   const [loading, setLoading] = useState(true);
@@ -65,15 +64,12 @@ export default function LiveTrip() {
   const [hasContributed, setHasContributed] = useState(false);
 
   const [contributing, setContributing] = useState(false);
-
   const [leavingBus, setLeavingBus] = useState(false);
-
   const [endingTrip, setEndingTrip] = useState(false);
 
   const [copied, setCopied] = useState(false);
 
   const [demoRunning, setDemoRunning] = useState(false);
-
   const [demoCompleted, setDemoCompleted] = useState(false);
 
   const [error, setError] = useState("");
@@ -81,7 +77,7 @@ export default function LiveTrip() {
   const currentUser = auth.currentUser;
 
   /*
-   * Listen to the trip document.
+   * Listen to live trip document.
    */
   useEffect(() => {
     const tripRef = doc(db, "trips", tripId);
@@ -112,7 +108,6 @@ export default function LiveTrip() {
         );
 
         setError("Could not load live trip.");
-
         setLoading(false);
       }
     );
@@ -121,7 +116,35 @@ export default function LiveTrip() {
   }, [tripId]);
 
   /*
-   * Listen to live passenger count.
+   * Passenger redirect after conductor ends trip.
+   *
+   * Passenger sees TRIP ENDED for 2 seconds,
+   * then returns automatically to Active Buses.
+   *
+   * The conductor is unaffected.
+   */
+  useEffect(() => {
+    if (
+      !trip ||
+      trip.status === "active" ||
+      currentUser?.uid === trip.conductorId
+    ) {
+      return;
+    }
+
+    const redirectTimer = window.setTimeout(() => {
+      navigate("/join-trip", {
+        replace: true,
+      });
+    }, 2000);
+
+    return () => {
+      window.clearTimeout(redirectTimer);
+    };
+  }, [trip, currentUser, navigate]);
+
+  /*
+   * Listen to passenger count.
    */
   useEffect(() => {
     const participantsRef = collection(
@@ -152,7 +175,7 @@ export default function LiveTrip() {
   }, [tripId]);
 
   /*
-   * Check whether the current passenger has contributed.
+   * Check whether current passenger contributed.
    */
   useEffect(() => {
     if (!currentUser) {
@@ -173,7 +196,6 @@ export default function LiveTrip() {
 
       (snapshot) => {
         setHasContributed(snapshot.exists());
-
         setCheckingContribution(false);
       },
 
@@ -184,7 +206,6 @@ export default function LiveTrip() {
         );
 
         setError("Could not check participation status.");
-
         setCheckingContribution(false);
       }
     );
@@ -193,7 +214,7 @@ export default function LiveTrip() {
   }, [tripId, currentUser]);
 
   /*
-   * Passenger joins the bus.
+   * Passenger contributes.
    */
   const handleContribute = async () => {
     if (contributing || hasContributed || leavingBus) {
@@ -219,7 +240,6 @@ export default function LiveTrip() {
 
     try {
       setContributing(true);
-
       setError("");
 
       const tripRef = doc(db, "trips", tripId);
@@ -252,7 +272,6 @@ export default function LiveTrip() {
 
         transaction.set(participantRef, {
           userId: user.uid,
-
           joinedAt: serverTimestamp(),
         });
       });
@@ -282,7 +301,7 @@ export default function LiveTrip() {
   };
 
   /*
-   * Passenger leaves the bus.
+   * Passenger stops contributing.
    */
   const handleStopContributing = async () => {
     if (!hasContributed || leavingBus || contributing) {
@@ -301,13 +320,11 @@ export default function LiveTrip() {
 
     if (!trip || trip.status !== "active") {
       setError("This trip is no longer active.");
-
       return;
     }
 
     try {
       setLeavingBus(true);
-
       setError("");
 
       const participantRef = doc(
@@ -343,7 +360,6 @@ export default function LiveTrip() {
 
     if (!trip || trip.status !== "active") {
       setError("This trip is not active.");
-
       return;
     }
 
@@ -351,28 +367,24 @@ export default function LiveTrip() {
 
     if (!user || user.uid !== trip.conductorId) {
       setError("Only the conductor can start demo mode.");
-
       return;
     }
 
     setError("");
-
     setDemoCompleted(false);
-
     setDemoRunning(true);
   };
 
   /*
-   * Demo route completed.
+   * Demo completed.
    */
   const handleDemoComplete = useCallback(() => {
     setDemoRunning(false);
-
     setDemoCompleted(true);
   }, []);
 
   /*
-   * End the live trip.
+   * Conductor ends trip.
    */
   const handleEndTrip = async () => {
     if (!trip || trip.status !== "active" || endingTrip) {
@@ -383,7 +395,6 @@ export default function LiveTrip() {
 
     if (!user) {
       setError("You must be signed in to end this trip.");
-
       return;
     }
 
@@ -405,21 +416,14 @@ export default function LiveTrip() {
 
     try {
       setEndingTrip(true);
-
       setDemoRunning(false);
-
       setError("");
 
       await updateDoc(doc(db, "trips", tripId), {
         status: "ended",
-
         endedAt: serverTimestamp(),
       });
 
-      /*
-       * Return the conductor to Home after the
-       * Firestore update completes successfully.
-       */
       navigate("/", {
         replace: true,
       });
@@ -641,12 +645,11 @@ export default function LiveTrip() {
                     </span>
                   )}
 
-                  {demoCompleted &&
-                    !demoRunning && (
-                      <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-400">
-                        DEMO COMPLETED
-                      </span>
-                    )}
+                  {demoCompleted && !demoRunning && (
+                    <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-400">
+                      DEMO COMPLETED
+                    </span>
+                  )}
                 </div>
 
                 <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl">
@@ -697,8 +700,7 @@ export default function LiveTrip() {
                   initial={{ width: 0 }}
                   animate={{
                     width: `${Math.min(
-                      (participantCount / 25) *
-                        100,
+                      (participantCount / 25) * 100,
                       100
                     )}%`,
                   }}
@@ -733,9 +735,7 @@ export default function LiveTrip() {
                 onClick={handleCopyTripId}
                 className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold transition hover:bg-white/[0.08]"
               >
-                {copied
-                  ? "Copied ✓"
-                  : "Copy Trip ID"}
+                {copied ? "Copied ✓" : "Copy Trip ID"}
               </button>
 
               <div className="mt-6 border-t border-white/[0.07] pt-6">
@@ -843,8 +843,7 @@ export default function LiveTrip() {
 
               <div className="mt-3 flex justify-between text-xs text-zinc-700">
                 <span>
-                  {route?.stops[0]?.name ||
-                    "Start"}
+                  {route?.stops[0]?.name || "Start"}
                 </span>
 
                 <span>
@@ -857,89 +856,84 @@ export default function LiveTrip() {
           </div>
 
           <div className="border-t border-white/[0.07] px-6 py-6 sm:px-9">
-            {!isConductor &&
-              tripIsActive && (
-                <>
-                  {!hasContributed ? (
-                    <button
-                      onClick={handleContribute}
-                      disabled={
-                        checkingContribution ||
-                        contributing ||
-                        leavingBus
-                      }
-                      className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 py-4 font-semibold shadow-[0_15px_50px_rgba(37,99,235,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {checkingContribution
-                        ? "Checking contribution..."
-                        : contributing
-                        ? "Adding contribution..."
-                        : "I'm On This Bus"}
-                    </button>
-                  ) : (
-                    <div>
-                      <div className="mb-4 rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-center text-sm text-green-400">
-                        ✓ You are contributing to this live trip
-                      </div>
-
-                      <button
-                        onClick={
-                          handleStopContributing
-                        }
-                        disabled={
-                          leavingBus ||
-                          contributing
-                        }
-                        className="w-full rounded-xl border border-red-500/20 bg-red-500/10 py-4 font-semibold text-red-400 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {leavingBus
-                          ? "Stopping Contribution..."
-                          : "Stop Contributing"}
-                      </button>
+            {!isConductor && tripIsActive && (
+              <>
+                {!hasContributed ? (
+                  <button
+                    onClick={handleContribute}
+                    disabled={
+                      checkingContribution ||
+                      contributing ||
+                      leavingBus
+                    }
+                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 py-4 font-semibold shadow-[0_15px_50px_rgba(37,99,235,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {checkingContribution
+                      ? "Checking contribution..."
+                      : contributing
+                      ? "Adding contribution..."
+                      : "I'm On This Bus"}
+                  </button>
+                ) : (
+                  <div>
+                    <div className="mb-4 rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-center text-sm text-green-400">
+                      ✓ You are contributing to this live trip
                     </div>
-                  )}
-                </>
-              )}
 
-            {isConductor &&
-              tripIsActive && (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <button
-                    onClick={handleStartDemo}
-                    disabled={
-                      demoRunning ||
-                      endingTrip
-                    }
-                    className="w-full rounded-xl border border-purple-500/20 bg-purple-500/10 py-4 font-semibold text-purple-400 transition hover:bg-purple-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {demoRunning
-                      ? "Demo Route Running..."
-                      : demoCompleted
-                      ? "Run Demo Route Again"
-                      : "Start Demo Route"}
-                  </button>
+                    <button
+                      onClick={handleStopContributing}
+                      disabled={leavingBus || contributing}
+                      className="w-full rounded-xl border border-red-500/20 bg-red-500/10 py-4 font-semibold text-red-400 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {leavingBus
+                        ? "Stopping Contribution..."
+                        : "Stop Contributing"}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
 
-                  <button
-                    onClick={handleEndTrip}
-                    disabled={
-                      endingTrip ||
-                      demoRunning
-                    }
-                    className="w-full rounded-xl border border-red-500/20 bg-red-500/10 py-4 font-semibold text-red-400 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {endingTrip
-                      ? "Ending Trip..."
-                      : "End Live Trip"}
-                  </button>
-                </div>
-              )}
+            {isConductor && tripIsActive && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={handleStartDemo}
+                  disabled={demoRunning || endingTrip}
+                  className="w-full rounded-xl border border-purple-500/20 bg-purple-500/10 py-4 font-semibold text-purple-400 transition hover:bg-purple-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {demoRunning
+                    ? "Demo Route Running..."
+                    : demoCompleted
+                    ? "Run Demo Route Again"
+                    : "Start Demo Route"}
+                </button>
+
+                <button
+                  onClick={handleEndTrip}
+                  disabled={endingTrip || demoRunning}
+                  className="w-full rounded-xl border border-red-500/20 bg-red-500/10 py-4 font-semibold text-red-400 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {endingTrip
+                    ? "Ending Trip..."
+                    : "End Live Trip"}
+                </button>
+              </div>
+            )}
 
             {!tripIsActive && (
               <button
-                onClick={() => navigate("/")}
+                onClick={() =>
+                  navigate(
+                    isConductor
+                      ? "/"
+                      : "/join-trip"
+                  )
+                }
                 className="w-full rounded-xl bg-white/[0.06] py-4 font-semibold transition hover:bg-white/[0.09]"
               >
-                Return Home
+                {isConductor
+                  ? "Return Home"
+                  : "Returning to Active Buses..."}
               </button>
             )}
 
