@@ -14,6 +14,7 @@ import {
 
 import { auth, db } from "../firebase";
 import RouteMap from "../components/RouteMap";
+import ConductorLocationTracker from "../components/ConductorLocationTracker";
 import { DEFAULT_ROUTE_ID } from "../data/routes";
 
 function getCrowdLevel(count) {
@@ -377,6 +378,11 @@ export default function LiveTrip() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white px-6 py-8 sm:py-12">
+      <ConductorLocationTracker
+        tripId={tripId}
+        enabled={Boolean(isConductor && tripIsActive)}
+      />
+
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-[-300px] h-[650px] w-[850px] -translate-x-1/2 rounded-full bg-blue-600/15 blur-[160px]" />
 
