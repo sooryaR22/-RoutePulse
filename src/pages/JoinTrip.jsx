@@ -7,6 +7,7 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  orderBy,
   query,
   where,
 } from "firebase/firestore";
@@ -147,7 +148,8 @@ export default function JoinTrip() {
   useEffect(() => {
     const activeTripsQuery = query(
       collection(db, "trips"),
-      where("status", "==", "active")
+      where("status", "==", "active"),
+      orderBy("createdAt", "desc")
     );
 
     const unsubscribe = onSnapshot(
@@ -159,6 +161,7 @@ export default function JoinTrip() {
         }));
 
         setActiveTrips(trips);
+        setError("");
         setLoadingTrips(false);
       },
       (snapshotError) => {
