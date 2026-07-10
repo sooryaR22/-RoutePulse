@@ -13,6 +13,8 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "../firebase";
+import RouteMap from "../components/RouteMap";
+import { DEFAULT_ROUTE_ID } from "../data/routes";
 
 function getCrowdLevel(count) {
   if (count <= 5) {
@@ -578,6 +580,10 @@ export default function LiveTrip() {
             )}
           </div>
         </motion.section>
+
+        <section className="mt-6">
+          <RouteMap routeId={DEFAULT_ROUTE_ID} />
+        </section>
       </div>
     </main>
   );

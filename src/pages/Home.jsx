@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { auth } from "../firebase";
 
-const CONDUCTOR_UID = "F4ypVGrCxNOdlQq4RlF6K7sTAp52";
+const CONDUCTOR_UID = "zrTbbzVV4nSlYfsCYo74NJAE7422";
 
 export default function Home() {
   const navigate = useNavigate();

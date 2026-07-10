@@ -13,7 +13,12 @@ import {
 
 import { auth, db } from "../firebase";
 
-const CONDUCTOR_UID = "F4ypVGrCxNOdlQq4RlF6K7sTAp52";
+import {
+  DEFAULT_ROUTE_ID,
+  getRouteById,
+} from "../data/routes";
+
+const CONDUCTOR_UID = "zrTbbzVV4nSlYfsCYo74NJAE7422";
 
 export default function StartTrip() {
   const navigate = useNavigate();
@@ -94,6 +99,15 @@ export default function StartTrip() {
       return;
     }
 
+    const route = getRouteById(DEFAULT_ROUTE_ID);
+
+    if (!route || route.stops.length === 0) {
+      setError("Route configuration could not be loaded.");
+      return;
+    }
+
+    const firstStop = route.stops[0];
+
     try {
       setLoading(true);
 
@@ -117,6 +131,17 @@ export default function StartTrip() {
       const tripRef = await addDoc(collection(db, "trips"), {
         busNumber: cleanBusNumber,
         routeName: cleanRouteName,
+
+        routeId: DEFAULT_ROUTE_ID,
+
+        busLocation: {
+          latitude: firstStop.latitude,
+          longitude: firstStop.longitude,
+          source: "initial",
+        },
+
+        locationUpdatedAt: serverTimestamp(),
+
         conductorId: user.uid,
         passengerCount: 0,
         status: "active",
