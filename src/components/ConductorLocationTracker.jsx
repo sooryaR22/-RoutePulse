@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 import {
   doc,
+  runTransaction,
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
@@ -52,7 +53,7 @@ function getDistanceMeters(
 function findStopInsideGeofence(route, latitude, longitude) {
   let nearestStop = null;
 
-  for (const stop of route.stops) {
+  route.stops.forEach((stop, index) => {
     const distanceMeters = getDistanceMeters(
       latitude,
       longitude,
@@ -68,13 +69,66 @@ function findStopInsideGeofence(route, latitude, longitude) {
         nearestStop = {
           id: stop.id,
           name: stop.name,
+          index,
           distanceMeters,
         };
       }
     }
-  }
+  });
 
   return nearestStop;
+}
+
+async function recordStopArrival({
+  tripId,
+  routeId,
+  detectedStop,
+}) {
+  const tripRef = doc(db, "trips", tripId);
+
+  const arrivalRef = doc(
+    db,
+    "trips",
+    tripId,
+    "arrivals",
+    detectedStop.id
+  );
+
+  await runTransaction(db, async (transaction) => {
+    const tripSnapshot = await transaction.get(tripRef);
+
+    if (!tripSnapshot.exists()) {
+      throw new Error("Trip does not exist.");
+    }
+
+    const tripData = tripSnapshot.data();
+
+    if (tripData.status !== "active") {
+      throw new Error("Trip is not active.");
+    }
+
+    const arrivalSnapshot =
+      await transaction.get(arrivalRef);
+
+    if (arrivalSnapshot.exists()) {
+      return;
+    }
+
+    transaction.set(arrivalRef, {
+      stopId: detectedStop.id,
+      stopName: detectedStop.name,
+      stopIndex: detectedStop.index,
+      routeId,
+      arrivedAt: serverTimestamp(),
+    });
+
+    transaction.update(tripRef, {
+      lastArrivedStopId: detectedStop.id,
+      lastArrivedStopName: detectedStop.name,
+      lastArrivedStopIndex: detectedStop.index,
+      lastArrivedAt: serverTimestamp(),
+    });
+  });
 }
 
 export default function ConductorLocationTracker({
@@ -129,6 +183,10 @@ export default function ConductorLocationTracker({
         longitude
       );
 
+      const enteredNewStop =
+        detectedStop &&
+        detectedStop.id !== lastDetectedStopId;
+
       if (detectedStop?.id !== lastDetectedStopId) {
         if (detectedStop) {
           console.log(
@@ -137,9 +195,9 @@ export default function ConductorLocationTracker({
         } else if (lastDetectedStopId) {
           console.log("Bus left the current stop geofence.");
         }
-
-        lastDetectedStopId = detectedStop?.id || null;
       }
+
+      lastDetectedStopId = detectedStop?.id || null;
 
       try {
         await updateDoc(doc(db, "trips", tripId), {
@@ -160,9 +218,21 @@ export default function ConductorLocationTracker({
             ? Math.round(detectedStop.distanceMeters)
             : null,
         });
+
+        if (enteredNewStop) {
+          await recordStopArrival({
+            tripId,
+            routeId,
+            detectedStop,
+          });
+
+          console.log(
+            `Recorded stop arrival: ${detectedStop.name}`
+          );
+        }
       } catch (locationUpdateError) {
         console.error(
-          "Failed to update conductor location:",
+          "Failed to update conductor location or record arrival:",
           locationUpdateError
         );
       }
