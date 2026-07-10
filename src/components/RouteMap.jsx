@@ -74,7 +74,10 @@ function FitRouteBounds({ stops }) {
   return null;
 }
 
-export default function RouteMap({ routeId }) {
+export default function RouteMap({
+  routeId,
+  busLocation,
+}) {
   const route = getRouteById(routeId);
 
   if (!route) {
@@ -92,10 +95,19 @@ export default function RouteMap({ routeId }) {
 
   const firstStop = route.stops[0];
 
-  const busPosition = [
-    firstStop.latitude,
-    firstStop.longitude,
-  ];
+  const hasValidBusLocation =
+    Number.isFinite(busLocation?.latitude) &&
+    Number.isFinite(busLocation?.longitude);
+
+  const busPosition = hasValidBusLocation
+    ? [
+        busLocation.latitude,
+        busLocation.longitude,
+      ]
+    : [
+        firstStop.latitude,
+        firstStop.longitude,
+      ];
 
   return (
     <div className="overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.035]">

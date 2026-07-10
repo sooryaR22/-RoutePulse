@@ -582,7 +582,10 @@ export default function LiveTrip() {
         </motion.section>
 
         <section className="mt-6">
-          <RouteMap routeId={DEFAULT_ROUTE_ID} />
+          <RouteMap
+            routeId={trip.routeId || DEFAULT_ROUTE_ID}
+            busLocation={trip.busLocation}
+          />
         </section>
       </div>
     </main>
