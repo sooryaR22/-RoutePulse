@@ -16,6 +16,7 @@ import { auth, db } from "../firebase";
 import RouteMap from "../components/RouteMap";
 import ConductorLocationTracker from "../components/ConductorLocationTracker";
 import DemoRouteTracker from "../components/DemoRouteTracker";
+
 import {
   DEFAULT_ROUTE_ID,
   getRouteById,
@@ -53,26 +54,41 @@ export default function LiveTrip() {
   const navigate = useNavigate();
 
   const [trip, setTrip] = useState(null);
+
   const [participantCount, setParticipantCount] = useState(0);
+
   const [loading, setLoading] = useState(true);
+
   const [checkingContribution, setCheckingContribution] =
     useState(true);
+
   const [hasContributed, setHasContributed] = useState(false);
+
   const [contributing, setContributing] = useState(false);
+
   const [leavingBus, setLeavingBus] = useState(false);
+
   const [endingTrip, setEndingTrip] = useState(false);
+
   const [copied, setCopied] = useState(false);
+
   const [demoRunning, setDemoRunning] = useState(false);
+
   const [demoCompleted, setDemoCompleted] = useState(false);
+
   const [error, setError] = useState("");
 
   const currentUser = auth.currentUser;
 
+  /*
+   * Listen to the trip document.
+   */
   useEffect(() => {
     const tripRef = doc(db, "trips", tripId);
 
     const unsubscribe = onSnapshot(
       tripRef,
+
       (snapshot) => {
         if (!snapshot.exists()) {
           setTrip(null);
@@ -88,9 +104,15 @@ export default function LiveTrip() {
 
         setLoading(false);
       },
+
       (snapshotError) => {
-        console.error("Live trip listener failed:", snapshotError);
+        console.error(
+          "Live trip listener failed:",
+          snapshotError
+        );
+
         setError("Could not load live trip.");
+
         setLoading(false);
       }
     );
@@ -98,6 +120,9 @@ export default function LiveTrip() {
     return () => unsubscribe();
   }, [tripId]);
 
+  /*
+   * Listen to live passenger count.
+   */
   useEffect(() => {
     const participantsRef = collection(
       db,
@@ -108,9 +133,11 @@ export default function LiveTrip() {
 
     const unsubscribe = onSnapshot(
       participantsRef,
+
       (snapshot) => {
         setParticipantCount(snapshot.size);
       },
+
       (participantCountError) => {
         console.error(
           "Participant count listener failed:",
@@ -124,6 +151,9 @@ export default function LiveTrip() {
     return () => unsubscribe();
   }, [tripId]);
 
+  /*
+   * Check whether the current passenger has contributed.
+   */
   useEffect(() => {
     if (!currentUser) {
       setCheckingContribution(false);
@@ -140,10 +170,13 @@ export default function LiveTrip() {
 
     const unsubscribe = onSnapshot(
       participantRef,
+
       (snapshot) => {
         setHasContributed(snapshot.exists());
+
         setCheckingContribution(false);
       },
+
       (participantError) => {
         console.error(
           "Participant listener failed:",
@@ -151,6 +184,7 @@ export default function LiveTrip() {
         );
 
         setError("Could not check participation status.");
+
         setCheckingContribution(false);
       }
     );
@@ -158,6 +192,9 @@ export default function LiveTrip() {
     return () => unsubscribe();
   }, [tripId, currentUser]);
 
+  /*
+   * Passenger joins the bus.
+   */
   const handleContribute = async () => {
     if (contributing || hasContributed || leavingBus) {
       return;
@@ -182,6 +219,7 @@ export default function LiveTrip() {
 
     try {
       setContributing(true);
+
       setError("");
 
       const tripRef = doc(db, "trips", tripId);
@@ -214,6 +252,7 @@ export default function LiveTrip() {
 
         transaction.set(participantRef, {
           userId: user.uid,
+
           joinedAt: serverTimestamp(),
         });
       });
@@ -228,15 +267,23 @@ export default function LiveTrip() {
         "Passenger already contributed."
       ) {
         setHasContributed(true);
-        setError("You have already contributed to this trip.");
+
+        setError(
+          "You have already contributed to this trip."
+        );
       } else {
-        setError("Could not contribute to the passenger count.");
+        setError(
+          "Could not contribute to the passenger count."
+        );
       }
     } finally {
       setContributing(false);
     }
   };
 
+  /*
+   * Passenger leaves the bus.
+   */
   const handleStopContributing = async () => {
     if (!hasContributed || leavingBus || contributing) {
       return;
@@ -245,17 +292,22 @@ export default function LiveTrip() {
     const user = auth.currentUser;
 
     if (!user) {
-      setError("You must be signed in to stop contributing.");
+      setError(
+        "You must be signed in to stop contributing."
+      );
+
       return;
     }
 
     if (!trip || trip.status !== "active") {
       setError("This trip is no longer active.");
+
       return;
     }
 
     try {
       setLeavingBus(true);
+
       setError("");
 
       const participantRef = doc(
@@ -268,13 +320,22 @@ export default function LiveTrip() {
 
       await deleteDoc(participantRef);
     } catch (leaveError) {
-      console.error("Failed to stop contributing:", leaveError);
-      setError("Could not stop contributing. Please try again.");
+      console.error(
+        "Failed to stop contributing:",
+        leaveError
+      );
+
+      setError(
+        "Could not stop contributing. Please try again."
+      );
     } finally {
       setLeavingBus(false);
     }
   };
 
+  /*
+   * Start demo route.
+   */
   const handleStartDemo = () => {
     if (demoRunning) {
       return;
@@ -282,6 +343,7 @@ export default function LiveTrip() {
 
     if (!trip || trip.status !== "active") {
       setError("This trip is not active.");
+
       return;
     }
 
@@ -289,19 +351,29 @@ export default function LiveTrip() {
 
     if (!user || user.uid !== trip.conductorId) {
       setError("Only the conductor can start demo mode.");
+
       return;
     }
 
     setError("");
+
     setDemoCompleted(false);
+
     setDemoRunning(true);
   };
 
+  /*
+   * Demo route completed.
+   */
   const handleDemoComplete = useCallback(() => {
     setDemoRunning(false);
+
     setDemoCompleted(true);
   }, []);
 
+  /*
+   * End the live trip.
+   */
   const handleEndTrip = async () => {
     if (!trip || trip.status !== "active" || endingTrip) {
       return;
@@ -311,11 +383,15 @@ export default function LiveTrip() {
 
     if (!user) {
       setError("You must be signed in to end this trip.");
+
       return;
     }
 
     if (user.uid !== trip.conductorId) {
-      setError("Only the conductor who started this trip can end it.");
+      setError(
+        "Only the conductor who started this trip can end it."
+      );
+
       return;
     }
 
@@ -329,31 +405,56 @@ export default function LiveTrip() {
 
     try {
       setEndingTrip(true);
+
       setDemoRunning(false);
+
       setError("");
 
       await updateDoc(doc(db, "trips", tripId), {
         status: "ended",
+
         endedAt: serverTimestamp(),
       });
+
+      /*
+       * Return the conductor to Home after the
+       * Firestore update completes successfully.
+       */
+      navigate("/", {
+        replace: true,
+      });
     } catch (endTripError) {
-      console.error("Failed to end trip:", endTripError);
-      setError("Could not end the trip. Please try again.");
+      console.error(
+        "Failed to end trip:",
+        endTripError
+      );
+
+      setError(
+        "Could not end the trip. Please try again."
+      );
     } finally {
       setEndingTrip(false);
     }
   };
 
+  /*
+   * Copy Trip ID.
+   */
   const handleCopyTripId = async () => {
     try {
       await navigator.clipboard.writeText(tripId);
+
       setCopied(true);
 
       window.setTimeout(() => {
         setCopied(false);
       }, 2000);
     } catch (copyError) {
-      console.error("Could not copy Trip ID:", copyError);
+      console.error(
+        "Could not copy Trip ID:",
+        copyError
+      );
+
       setError("Could not copy the Trip ID.");
     }
   };
@@ -394,13 +495,21 @@ export default function LiveTrip() {
 
   const totalStops = route?.stops.length || 0;
 
-  const reachedStops = Number.isInteger(trip.lastArrivedStopIndex)
-    ? Math.min(trip.lastArrivedStopIndex + 1, totalStops)
+  const reachedStops = Number.isInteger(
+    trip.lastArrivedStopIndex
+  )
+    ? Math.min(
+        trip.lastArrivedStopIndex + 1,
+        totalStops
+      )
     : 0;
 
   const progressPercentage =
     totalStops > 0
-      ? Math.min((reachedStops / totalStops) * 100, 100)
+      ? Math.min(
+          (reachedStops / totalStops) * 100,
+          100
+        )
       : 0;
 
   const routeCompleted = Boolean(trip.routeCompleted);
@@ -421,28 +530,28 @@ export default function LiveTrip() {
     : null;
 
   const nextStopEtaSeconds = Number.isFinite(
-  trip.nextStopEtaSeconds
-)
-  ? trip.nextStopEtaSeconds
-  : null;
+    trip.nextStopEtaSeconds
+  )
+    ? trip.nextStopEtaSeconds
+    : null;
 
-const formattedNextStopDistance =
-  nextStopDistanceMeters === null
-    ? "--"
-    : nextStopDistanceMeters >= 1000
-    ? `${(nextStopDistanceMeters / 1000).toFixed(1)} km`
-    : `${Math.round(nextStopDistanceMeters)} m`;
+  const formattedNextStopDistance =
+    nextStopDistanceMeters === null
+      ? "--"
+      : nextStopDistanceMeters >= 1000
+      ? `${(nextStopDistanceMeters / 1000).toFixed(1)} km`
+      : `${Math.round(nextStopDistanceMeters)} m`;
 
-const formattedNextStopEta =
-  nextStopEtaSeconds === null
-    ? "--"
-    : nextStopEtaSeconds <= 0
-    ? "Arriving"
-    : nextStopEtaSeconds >= 60
-    ? `${Math.floor(nextStopEtaSeconds / 60)} min ${
-        nextStopEtaSeconds % 60
-      } sec`
-    : `${nextStopEtaSeconds} sec`;
+  const formattedNextStopEta =
+    nextStopEtaSeconds === null
+      ? "--"
+      : nextStopEtaSeconds <= 0
+      ? "Arriving"
+      : nextStopEtaSeconds >= 60
+      ? `${Math.floor(nextStopEtaSeconds / 60)} min ${
+          nextStopEtaSeconds % 60
+        } sec`
+      : `${nextStopEtaSeconds} sec`;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white px-6 py-8 sm:py-12">
@@ -450,7 +559,9 @@ const formattedNextStopEta =
         tripId={tripId}
         routeId={routeId}
         enabled={Boolean(
-          isConductor && tripIsActive && !demoRunning
+          isConductor &&
+            tripIsActive &&
+            !demoRunning
         )}
       />
 
@@ -458,30 +569,48 @@ const formattedNextStopEta =
         tripId={tripId}
         routeId={routeId}
         enabled={Boolean(
-          isConductor && tripIsActive && demoRunning
+          isConductor &&
+            tripIsActive &&
+            demoRunning
         )}
         onComplete={handleDemoComplete}
       />
 
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-[-300px] h-[650px] w-[850px] -translate-x-1/2 rounded-full bg-blue-600/15 blur-[160px]" />
+
         <div className="absolute bottom-[-300px] right-[-200px] h-[500px] w-[500px] rounded-full bg-indigo-600/10 blur-[150px]" />
       </div>
 
       <div className="relative z-10 mx-auto w-full max-w-5xl">
         <button
           onClick={() =>
-            navigate(isConductor ? "/" : "/join-trip")
+            navigate(
+              isConductor
+                ? "/"
+                : "/join-trip"
+            )
           }
           className="text-sm text-zinc-500 transition hover:text-white"
         >
-          ← {isConductor ? "Back to Home" : "Back to Active Buses"}
+          ←{" "}
+          {isConductor
+            ? "Back to Home"
+            : "Back to Active Buses"}
         </button>
 
         <motion.section
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
+          initial={{
+            opacity: 0,
+            y: 18,
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+          }}
+          transition={{
+            duration: 0.45,
+          }}
           className="mt-10 overflow-hidden rounded-[2rem] border border-white/[0.08] bg-white/[0.035] shadow-[0_30px_120px_rgba(37,99,235,0.10)] backdrop-blur-xl"
         >
           <div className="border-b border-white/[0.07] px-6 py-6 sm:px-9">
@@ -495,7 +624,9 @@ const formattedNextStopEta =
                         : "border-red-500/20 bg-red-500/10 text-red-400"
                     }`}
                   >
-                    {tripIsActive ? "● LIVE TRIP" : "TRIP ENDED"}
+                    {tripIsActive
+                      ? "● LIVE TRIP"
+                      : "TRIP ENDED"}
                   </span>
 
                   <span className="text-xs font-medium tracking-[0.15em] text-zinc-600">
@@ -510,11 +641,12 @@ const formattedNextStopEta =
                     </span>
                   )}
 
-                  {demoCompleted && !demoRunning && (
-                    <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-400">
-                      DEMO COMPLETED
-                    </span>
-                  )}
+                  {demoCompleted &&
+                    !demoRunning && (
+                      <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-400">
+                        DEMO COMPLETED
+                      </span>
+                    )}
                 </div>
 
                 <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl">
@@ -565,7 +697,8 @@ const formattedNextStopEta =
                   initial={{ width: 0 }}
                   animate={{
                     width: `${Math.min(
-                      (participantCount / 25) * 100,
+                      (participantCount / 25) *
+                        100,
                       100
                     )}%`,
                   }}
@@ -600,13 +733,15 @@ const formattedNextStopEta =
                 onClick={handleCopyTripId}
                 className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold transition hover:bg-white/[0.08]"
               >
-                {copied ? "Copied ✓" : "Copy Trip ID"}
+                {copied
+                  ? "Copied ✓"
+                  : "Copy Trip ID"}
               </button>
 
               <div className="mt-6 border-t border-white/[0.07] pt-6">
                 <p className="text-xs leading-5 text-zinc-600">
-                  Share this Trip ID with passengers so they can open
-                  this live trip directly.
+                  Share this Trip ID with passengers so they can
+                  open this live trip directly.
                 </p>
               </div>
             </div>
@@ -645,7 +780,9 @@ const formattedNextStopEta =
 
                 <div className="rounded-2xl border border-blue-500/15 bg-blue-500/[0.06] p-5">
                   <p className="text-xs font-semibold tracking-[0.12em] text-blue-500">
-                    {routeCompleted ? "ROUTE STATUS" : "NEXT STOP"}
+                    {routeCompleted
+                      ? "ROUTE STATUS"
+                      : "NEXT STOP"}
                   </p>
 
                   <p className="mt-2 font-semibold text-blue-300">
@@ -705,78 +842,97 @@ const formattedNextStopEta =
               </div>
 
               <div className="mt-3 flex justify-between text-xs text-zinc-700">
-                <span>{route?.stops[0]?.name || "Start"}</span>
+                <span>
+                  {route?.stops[0]?.name ||
+                    "Start"}
+                </span>
 
                 <span>
-                  {route?.stops[route.stops.length - 1]?.name ||
-                    "Destination"}
+                  {route?.stops[
+                    route.stops.length - 1
+                  ]?.name || "Destination"}
                 </span>
               </div>
             </div>
           </div>
 
           <div className="border-t border-white/[0.07] px-6 py-6 sm:px-9">
-            {!isConductor && tripIsActive && (
-              <>
-                {!hasContributed ? (
-                  <button
-                    onClick={handleContribute}
-                    disabled={
-                      checkingContribution ||
-                      contributing ||
-                      leavingBus
-                    }
-                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 py-4 font-semibold shadow-[0_15px_50px_rgba(37,99,235,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {checkingContribution
-                      ? "Checking contribution..."
-                      : contributing
-                      ? "Adding contribution..."
-                      : "I'm On This Bus"}
-                  </button>
-                ) : (
-                  <div>
-                    <div className="mb-4 rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-center text-sm text-green-400">
-                      ✓ You are contributing to this live trip
-                    </div>
-
+            {!isConductor &&
+              tripIsActive && (
+                <>
+                  {!hasContributed ? (
                     <button
-                      onClick={handleStopContributing}
-                      disabled={leavingBus || contributing}
-                      className="w-full rounded-xl border border-red-500/20 bg-red-500/10 py-4 font-semibold text-red-400 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={handleContribute}
+                      disabled={
+                        checkingContribution ||
+                        contributing ||
+                        leavingBus
+                      }
+                      className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 py-4 font-semibold shadow-[0_15px_50px_rgba(37,99,235,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {leavingBus
-                        ? "Stopping Contribution..."
-                        : "Stop Contributing"}
+                      {checkingContribution
+                        ? "Checking contribution..."
+                        : contributing
+                        ? "Adding contribution..."
+                        : "I'm On This Bus"}
                     </button>
-                  </div>
-                )}
-              </>
-            )}
+                  ) : (
+                    <div>
+                      <div className="mb-4 rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-center text-sm text-green-400">
+                        ✓ You are contributing to this live trip
+                      </div>
 
-            {isConductor && tripIsActive && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  onClick={handleStartDemo}
-                  disabled={demoRunning || endingTrip}
-                  className="w-full rounded-xl border border-purple-500/20 bg-purple-500/10 py-4 font-semibold text-purple-400 transition hover:bg-purple-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {demoRunning
-                    ? "Demo Route Running..."
-                    : demoCompleted
-                    ? "Run Demo Route Again"
-                    : "Start Demo Route"}
-                </button>
+                      <button
+                        onClick={
+                          handleStopContributing
+                        }
+                        disabled={
+                          leavingBus ||
+                          contributing
+                        }
+                        className="w-full rounded-xl border border-red-500/20 bg-red-500/10 py-4 font-semibold text-red-400 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {leavingBus
+                          ? "Stopping Contribution..."
+                          : "Stop Contributing"}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
 
-                <button
-                  onClick={handleEndTrip}
-                  disabled={endingTrip || demoRunning}
-                  className="w-full rounded-xl border border-red-500/20 bg-red-500/10 py-4 font-semibold text-red-400 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {endingTrip ? "Ending Trip..." : "End Live Trip"}
-                </button>
-              </div>
-            )}
+            {isConductor &&
+              tripIsActive && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    onClick={handleStartDemo}
+                    disabled={
+                      demoRunning ||
+                      endingTrip
+                    }
+                    className="w-full rounded-xl border border-purple-500/20 bg-purple-500/10 py-4 font-semibold text-purple-400 transition hover:bg-purple-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {demoRunning
+                      ? "Demo Route Running..."
+                      : demoCompleted
+                      ? "Run Demo Route Again"
+                      : "Start Demo Route"}
+                  </button>
+
+                  <button
+                    onClick={handleEndTrip}
+                    disabled={
+                      endingTrip ||
+                      demoRunning
+                    }
+                    className="w-full rounded-xl border border-red-500/20 bg-red-500/10 py-4 font-semibold text-red-400 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {endingTrip
+                      ? "Ending Trip..."
+                      : "End Live Trip"}
+                  </button>
+                </div>
+              )}
 
             {!tripIsActive && (
               <button
