@@ -26,13 +26,17 @@ export default function Home() {
 
     return () => unsubscribe();
   }, []);
-const isConductor =
-  currentUser &&
-  CONDUCTOR_UIDS.includes(currentUser.uid);
+
+  const isConductor =
+    Boolean(currentUser) &&
+    CONDUCTOR_UIDS.includes(currentUser.uid);
 
   console.log("CURRENT USER:", currentUser);
   console.log("CURRENT UID:", currentUser?.uid);
-  console.log("EXPECTED CONDUCTOR UID:", CONDUCTOR_UID);
+  console.log(
+    "AUTHORIZED CONDUCTOR UIDS:",
+    CONDUCTOR_UIDS
+  );
   console.log("IS CONDUCTOR:", isConductor);
 
   return (
@@ -77,18 +81,35 @@ const isConductor =
       {/* Hero */}
       <section className="relative z-10 mx-auto flex w-full max-w-7xl flex-col items-center px-6 pb-16 pt-16 text-center lg:px-10 lg:pt-24">
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          initial={{
+            opacity: 0,
+            y: 16,
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+          }}
+          transition={{
+            duration: 0.5,
+          }}
           className="mb-6 rounded-full border border-blue-400/20 bg-blue-500/10 px-4 py-2 text-sm text-blue-300"
         >
           Real-time crowd intelligence for public transport
         </motion.div>
 
         <motion.h1
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.08 }}
+          initial={{
+            opacity: 0,
+            y: 24,
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+          }}
+          transition={{
+            duration: 0.6,
+            delay: 0.08,
+          }}
           className="max-w-4xl text-5xl font-black leading-[1.05] tracking-[-0.04em] sm:text-6xl lg:text-7xl"
         >
           Know the crowd.
@@ -99,9 +120,16 @@ const isConductor =
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.18 }}
+          initial={{
+            opacity: 0,
+          }}
+          animate={{
+            opacity: 1,
+          }}
+          transition={{
+            duration: 0.6,
+            delay: 0.18,
+          }}
           className="mt-7 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg"
         >
           RoutePulse turns passenger contributions into live transit
@@ -109,7 +137,7 @@ const isConductor =
           better travel decisions.
         </motion.p>
 
-        {/* Loading auth */}
+        {/* Authentication loading */}
         {checkingAuth && (
           <div className="mt-10 rounded-2xl border border-white/[0.07] bg-white/[0.025] px-6 py-5 text-sm text-zinc-500">
             Checking authentication...
@@ -119,9 +147,18 @@ const isConductor =
         {/* Main actions */}
         {!checkingAuth && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.28 }}
+            initial={{
+              opacity: 0,
+              y: 20,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              duration: 0.6,
+              delay: 0.28,
+            }}
             className={`mt-10 grid w-full gap-4 ${
               isConductor
                 ? "max-w-3xl md:grid-cols-2"
@@ -144,8 +181,8 @@ const isConductor =
                   </h2>
 
                   <p className="mt-3 text-sm leading-6 text-blue-100/70">
-                    Explore live trips, view crowd levels, and contribute
-                    your presence.
+                    Explore live trips, view crowd levels, and
+                    contribute your presence.
                   </p>
                 </div>
 
@@ -188,9 +225,16 @@ const isConductor =
 
         {/* Feature cards */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.7, delay: 0.4 }}
+          initial={{
+            opacity: 0,
+          }}
+          animate={{
+            opacity: 1,
+          }}
+          transition={{
+            duration: 0.7,
+            delay: 0.4,
+          }}
           className="mt-16 grid w-full max-w-5xl gap-4 sm:grid-cols-3"
         >
           <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5 text-left">
